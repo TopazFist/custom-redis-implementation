@@ -1,0 +1,17 @@
+# CMake build artifacts
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+/Makefile
+/*.cmake
+
+# Executables
+/server
+/client
+
+# OS / editor noise
+.DS_Store
+*.swp
+
+#settings
+settings.json
