@@ -6,49 +6,42 @@
 #include <unistd.h>
 #include <arpa/inet.h>   
 #include <sys/socket.h>
-// #include <netinet/ip.h>
-
-static void msg(const char *msg) {
-    fprintf(stderr, "%s\n", msg);
-}
-
-static void die(const char *msg) {
-    int err = errno;
-    fprintf(stderr, "[%d] %s\n", err, msg);
-    abort();
-}
-
-// struct in_addr {
-//     uint32_t s_addr;
-// };
-
-// struct sockaddr_in {
-//     uint16_t sin_family;
-//     uint16_t sin_port;
-//     struct in_addr sin_addr;
-// };
+#include "helper.h"
+#include <cassert>
 
 
+const size_t k_max_msg = 4096;
 
-static void do_something(int connfd) {
-    char buf[256];
-
-    while (1) {
-        ssize_t n = read(connfd, buf, sizeof(buf) - 1);
-        if (n <= 0) {
-            if (n < 0) perror("read failed");
-            else printf("client closed the connection\n");
-            break;
-        }
-
-        buf[n] = '\0'; // null-terminate for safety
-        printf("client sent: %s\n", buf);
-
-        if (write(connfd, buf, n) < 0) {
-            perror("write failed");
-            break;
-        }
+static int32_t one_request(int connfd) {
+    // 4 bytes header
+    char rbuf[4 + k_max_msg];
+    errno = 0;
+    int32_t err = read_full(connfd, rbuf, 4);
+    if (err) {
+        msg(errno == 0 ? "EOF" : "read() error");
+        return err;
     }
+    uint32_t len = 0;
+    memcpy(&len, rbuf, 4);  // assume little endian
+    if (len > k_max_msg) {
+        msg("too long");
+        return -1;
+    }
+    // request body
+    err = read_full(connfd, &rbuf[4], len);
+    if (err) {
+        msg("read() error");
+        return err;
+    }
+    // do something
+    printf("client says: %.*s\n", len, &rbuf[4]);
+    // reply using the same protocol
+    const char reply[] = "world";
+    char wbuf[4 + sizeof(reply)];
+    len = (uint32_t)strlen(reply);
+    memcpy(wbuf, &len, 4);
+    memcpy(&wbuf[4], reply, len);
+    return write_all(connfd, wbuf, 4 + len);
 }
 
 
@@ -93,9 +86,14 @@ int main() {
             continue;   // error
         }
 
-        do_something(connfd);
+        while (true){
+            int32_t err = one_request(connfd);
+            if (err) {
+                break;
+            }
+        }
         close(connfd);
-        
+
         break;
 
     }
