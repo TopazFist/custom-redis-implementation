@@ -31,17 +31,26 @@ static void die(const char *msg) {
 
 
 static void do_something(int connfd) {
-    char rbuf[64] = {};
-    ssize_t n = read(connfd, rbuf, sizeof(rbuf) - 1);
-    if (n < 0) {
-        msg("read() error");
-        return;
-    }
-    printf("client says: %s\n", rbuf);
+    char buf[256];
 
-    char wbuf[] = "world";
-    write(connfd, wbuf, strlen(wbuf));
+    while (1) {
+        ssize_t n = read(connfd, buf, sizeof(buf) - 1);
+        if (n <= 0) {
+            if (n < 0) perror("read failed");
+            else printf("client closed the connection\n");
+            break;
+        }
+
+        buf[n] = '\0'; // null-terminate for safety
+        printf("client sent: %s\n", buf);
+
+        if (write(connfd, buf, n) < 0) {
+            perror("write failed");
+            break;
+        }
+    }
 }
+
 
 
 int main() {
@@ -83,10 +92,13 @@ int main() {
         if (connfd < 0) {
             continue;   // error
         }
+
         do_something(connfd);
         close(connfd);
+        
+        break;
 
     }
-
+    close(fd);
     return 0;
 }

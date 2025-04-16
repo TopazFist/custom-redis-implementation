@@ -33,7 +33,7 @@ int main() {
     }
 
     struct sockaddr_in addr = {};
-    
+
     addr.sin_family = AF_INET;
     addr.sin_port = ntohs(1234);
     addr.sin_addr.s_addr = ntohl(INADDR_LOOPBACK);  // 127.0.0.1
@@ -43,16 +43,32 @@ int main() {
         die("connect");
     }
 
+    char msg[256];
+    char rbuf[256];
 
-    char msg[] = "hello";
-    write(fd, msg, strlen(msg));
+    while (true){
+        printf("Enter message (or 'quit'): ");
 
-    char rbuf[64] = {};
-    ssize_t n = read(fd, rbuf, sizeof(rbuf) - 1);
-    if (n < 0) {
-        die("read");
+        if (!fgets(msg, sizeof(msg), stdin)) break;
+
+        msg[strcspn(msg, "\n")] = 0;
+
+        if (strcmp(msg, "quit") == 0 || strlen(msg) == 0) {
+            printf("Exiting client.\n");
+            break;
+        }
+
+        write(fd, msg, strlen(msg));
+
+        ssize_t n = read(fd, rbuf, sizeof(rbuf) - 1);
+        if (n < 0) {
+            die("read");
+        }
+        printf("server sent: %s\n", rbuf);
     }
-    printf("server says: %s\n", rbuf);
+
+
     close(fd);
+    return 0;
 
 }
